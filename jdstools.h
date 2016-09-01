@@ -11,4 +11,4 @@ void movingMedian(int arraySize, float *inputArray, int movingMedianWindow, floa
 float averageValue(unsigned int n, float *x);
 float standardDeviation(unsigned int n, float *x);
 char *removeExtension (char* myString, char extensionSeparator, char pathSeparator);
-double gregjd(int jy, int jm, int jd, double rh, double rm, double rs);
+double gregorian2Julian(int gregorianYear, int gregorianMonth, int gregorianDay, double gregorianHour, double gregorianMinute, double gregorianSecond);

@@ -53,7 +53,7 @@ int main(int argc, char *argv[], char *arge[]) {
 
    /* AVAILABLE HELP */
    if (argc < 2 || (strcmp(argv[1], "-h") == 0)) { /* in case there is a -h switch */
-      puts("\nProgram adds two UTR-2 .fbk format files.");
+      puts("\nProgram adds two UTR-2 data format files.");
       puts("\nUsage: jdsadd [parameters] <filename>");
       puts("\nAvailable parameters are:\n");
       printf("-v         Verbose mode\n\n");
@@ -117,8 +117,8 @@ int main(int argc, char *argv[], char *arge[]) {
    jmn2 = headerjds2.SYSTEMTIME.min;
    jsc = headerjds.SYSTEMTIME.sec + (headerjds.SYSTEMTIME.msec * 0.001); /* seconds + milliseconds */
    jsc2 = headerjds2.SYSTEMTIME.sec + (headerjds2.SYSTEMTIME.msec * 0.001);
-   start_MJD = gregjd(jy, jm, jd, (double)jhr, (double)jmn, jsc) - 2400000.5; /* convert the date to JD and add 2400000.5 to get MJD */
-   start_MJD2 = gregjd(jy2, jm2, jd2, (double)jhr2, (double)jmn2, jsc2) - 2400000.5;
+   start_MJD = gregorian2Julian(jy, jm, jd, (double)jhr, (double)jmn, jsc) - 2400000.5; /* convert the date to JD and subtract 2400000.5 to get MJD */
+   start_MJD2 = gregorian2Julian(jy2, jm2, jd2, (double)jhr2, (double)jmn2, jsc2) - 2400000.5;
    printf("%s> Observation recorded in file %s started on %04d/%02d/%02d at %02d:%02d:%02.3f\n", argv[0], jds_filename, jy, jm, jd, jhr, jmn, jsc);
    printf("%s> Time stamp of first sample (MJD) in file %s: %.9lf\n", argv[0], jds_filename, start_MJD);
    printf("%s> Observation recorded in file %s started on %04d/%02d/%02d at %02d:%02d:%02.3f\n", argv[0], jds_filename2, jy2, jm2, jd2, jhr2, jmn2, jsc2);
