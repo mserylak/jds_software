@@ -5,7 +5,7 @@ struct UPP /* structure contains all the informations about data processing, PP 
   unsigned int prc_mode; /* processing parameters */
   unsigned int tst_gen; /* not used */
   unsigned int clk; /* not used */
-  unsigned int fft_size; /* used for data trasferring */
+  unsigned int fft_size; /* used for data transferring */
   unsigned int junk[10]; /* comment out this line, if you want to read old data created before August 2008 */
   /* unsigned int junk[26]; uncomment this line, if you want to read old data created before August 2008 */
 };
@@ -49,7 +49,7 @@ struct UDSPP /* structure contains extended informations about about data proces
   /* int junk[50]; uncomment this line, if you want to read old data created before August 2008 */
 };
 
-struct syst /* structure contains systemtime, it must be short int because IDL is using 2-byte integers to store the information */
+struct syst /* structure contains system time, it must be short int because IDL is using 2-byte integers to store the information */
 {
   short int yr; /* year */
   short int mn; /* month */

@@ -10,14 +10,14 @@
 #include "jds.h" /* jds header definition*/
 #include "jdstools.h" /* definitions of header extraction and data conversion functions */
 
-/* INITIALIZATION OF STRUCTURES... */
+/* initialization of structures... */
 struct FHEADER headerjds; /* global declaration of headerjds as variable of FHEADER type, globalna deklaracja zmiennej strukturalnej headerjds o budowie szablonu FHEADER */
 
-/* MAIN BODY OF THE PROGRAM */
+/* main body of the program */
 int main(int argc, char *argv[], char *arge[])
 {
-  int spectrum_width, first_spec_chan_num, last_spec_chan_num, bps, argument;
-  int jd, jm, jy, jhr, jmn, All;
+  int spectrum_width, bps, argument;
+  int jd, jm, jy, jhr, jmn, All, Correlation;
   int Nc, Nfmin[4], Nf[4];
   float sampling_time, channel_bw, freq_first_chan, freq_last_chan, observation_time, jsc;
   double start_MJD, file_size, max_spectra_number;
@@ -27,10 +27,11 @@ int main(int argc, char *argv[], char *arge[])
   All = 0;
   if (argc < 2 || (strcmp(argv[1], "-h") == 0)) /* in case there is a -h switch */
   {
-    puts("\nUsage: headerjds <filename>\n");
+    puts("\nUsage: headerjds <file name>\n");
     puts("The program will write out header content of a file in UTR-2 data format.");
     puts("Available parameters are:\n");
     puts("-a   Write out all raw header parameters.");
+    puts("-c   Data contains 4 streams (default: false)");
     puts("-h   Display this useful help page.\n\n");
     return -1;
   }
@@ -41,6 +42,10 @@ int main(int argc, char *argv[], char *arge[])
       if (strcmp(argv[argument], "-a") == 0)
       {
         All = 1;
+      }
+      else if (strcmp(argv[argument], "-c") == 0)
+      {
+        Correlation = 1;
       }
       else
       {
@@ -74,8 +79,6 @@ int main(int argc, char *argv[], char *arge[])
   jsc = headerjds.SYSTEMTIME.sec + (headerjds.SYSTEMTIME.msec * 0.001); /* passing seconds with milliseconds */
   start_MJD = gregorian2Julian(jy, jm, jd, (double)jhr, (double)jmn, jsc) - 2400000.5; /* convert the date to Modified Julian Day */
   spectrum_width = headerjds.DSPP.Wb; /* spectrum width in samples */
-  first_spec_chan_num = 0; /* lower channel number */
-  last_spec_chan_num = spectrum_width; /* upper channel number */
   sampling_time = 8192.0 / headerjds.DSPP.CLCfrq * headerjds.DSPP.NAvr; /* calculation of time resolution: full band spectrum / sampling ADC frequency * number of averaged spectra */
   Nfmin[0] = 0; /* matrix storing low bound number of samples */
   Nfmin[1] = 0; /* matrix storing low bound number of samples */
@@ -85,11 +88,18 @@ int main(int argc, char *argv[], char *arge[])
   Nf[1] = 4096; /* matrix storing number of samples: lower half of spectrum, 4096 samples */
   Nf[2] = 4096, /* matrix storing number of samples: top half of spectrum, 4096 samples; 3:tunable */
   Nf[3] = headerjds.DSPP.Wb; /* matrix storing number of samples: tunable mode */
-  Nc = 2 - headerjds.DSPP.Ch1 - headerjds.DSPP.Ch2; /* checking if file has one or two streams, if Nc = 1 then only one stream present, if 2 then both stream present */
-  rewind(JDS_IN); /* rewinding file to be sure that file will be read from the begining */
+  if (Correlation == 1)
+  {
+    Nc = 4; /* data contains 4 data streams (stream A, stream B, real A*B, imaginary A*B) */
+  }
+  else
+  {
+    Nc = 2 - headerjds.DSPP.Ch1 - headerjds.DSPP.Ch2; /* checking if file has one or two streams, if Nc = 1 then only one stream present, if 2 then both stream present */
+  }
+  rewind(JDS_IN); /* rewinding file to be sure that file will be read from the beginning */
   fseek(JDS_IN, 0L, SEEK_END); /* seeking end of file */
   file_size = ftell(JDS_IN); /* if you use ftell, then you must open the file in binary mode. If you open it in text mode, ftell only returns a "cookie" that is only usable by fseek */
-  rewind(JDS_IN); /* rewinding file to be sure that file will be read from the begining */
+  rewind(JDS_IN); /* rewinding file to be sure that file will be read from the beginning */
   max_spectra_number = (file_size - sizeof(headerjds)) / bps / Nf[headerjds.DSPP.Offt] / Nc; /* calculating number of spectra (time samples) in the file */
   channel_bw = headerjds.DSPP.CLCfrq / 16384.0; /* channel bandwidth */
   freq_first_chan = Nfmin[headerjds.DSPP.Offt] * channel_bw / 1.0e6; /* frequency of first channel */
@@ -115,7 +125,7 @@ int main(int argc, char *argv[], char *arge[])
   {
     printf("%s> Observation length (seconds)          : %.1f\n", argv[0], observation_time);
   }
-  printf("%s> Number of spectral channels           : %d\n", argv[0], spectrum_width);
+  printf("%s> Number of frequency channels          : %d\n", argv[0], spectrum_width);
   printf("%s> Frequency of first channel (MHz)      : %f\n", argv[0], freq_first_chan);
   printf("%s> Channel bandwidth (kHz)               : %f\n", argv[0], channel_bw/1e3);
   printf("%s> Frequency of last channel (MHz)       : %f\n", argv[0], freq_last_chan);

@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include "jds.h" /* jds header definition*/
-#include "jdstools.h" /* definitios of header extraction and data conversion functions */
+#include "jdstools.h" /* definitions of header extraction and data conversion functions */
 
 int main(int argc, char *argv[], char *arge[])
 {
@@ -36,7 +36,7 @@ int main(int argc, char *argv[], char *arge[])
   struct FHEADER headerjds; /* global declaration of headerjds as variable of FHEADER type */
   struct FHEADER headerjds2; /* global declaration of headerjds as variable of FHEADER type */
 
-  /* PRESET OPTIONS & DEFAULT VALUES */
+  /* preset options & default values */
   spectrum_counter = 0;
   spectrum_counter2 = 0;
   spectrum_number = 0;
@@ -52,7 +52,7 @@ int main(int argc, char *argv[], char *arge[])
   nbits = 32;
   Verbose = 0; /* verbose mode */
 
-  /* AVAILABLE HELP */
+  /* available help */
   if (argc < 2 || (strcmp(argv[1], "-h") == 0)) /* in case there is a -h switch */
   {
     puts("\nProgram adds two UTR-2 data format files.");
@@ -63,7 +63,7 @@ int main(int argc, char *argv[], char *arge[])
     return -1;
   }
 
-  /* READING COMMAND LINE ARGUMENTS */
+  /* reading command line arguments */
   if (argc > 2)
   {
     for (argument = 1; argument < argc - 1; argument++)
@@ -71,14 +71,16 @@ int main(int argc, char *argv[], char *arge[])
       if (strcmp(argv[argument], "-v") == 0)
       {
         Verbose = 1;
-      } //else {
-        //fprintf(stderr, "Unknown option: %s\n", argv[argument]);
-        //return -1;
-      //}
+      }
+      else
+      {
+        fprintf(stderr, "%s> Unknown option: %s\n", argv[0], argv[argument]);
+        return -1;
+      }
     }
   }
 
-  /* OPENING FILES */
+  /* opening files */
   strcpy(jds_filename, argv[argc-2]);
   strcpy(jds_filename2, argv[argc-1]);
   if ((JDS_IN = fopen64(jds_filename, "r")) == NULL)
@@ -92,7 +94,7 @@ int main(int argc, char *argv[], char *arge[])
   }
   printf("%s> Files %s and %s are open and ready to be read.\n", argv[0], jds_filename, jds_filename2);
 
-  /* READING HEADERS INFORMATION AND CALCULATING PARAMETERS FOR ADDING FILES */
+  /* reading headers information and calculating parameters for adding files */
   fread(&headerjds, sizeof(headerjds), 1, JDS_IN); /* binary read header of jds file and reading name, time, gmtt, sysn, syst, place, desc, PP, DSPP values */
   fread(&headerjds2, sizeof(headerjds2), 1, JDS_IN2);
   printf("%s> Reading header of file %s\n", argv[0], jds_filename);
@@ -167,16 +169,16 @@ int main(int argc, char *argv[], char *arge[])
   printf("%s> File %s has %d streams.\n", argv[0], jds_filename, Nc);
   printf("%s> File %s has %d streams.\n", argv[0], jds_filename2, Nc2);
 
-  rewind(JDS_IN); /* rewinding file to be sure that file will be read from the begining */
+  rewind(JDS_IN); /* rewinding file to be sure that file will be read from the beginning */
   fseek(JDS_IN, 0L, SEEK_END); /* seeking end of file */
   file_size = ftell(JDS_IN); /* if you use ftell, then you must open the file in binary mode. If you open it in text mode, ftell only returns a "cookie" that is only usable by fseek */
-  rewind(JDS_IN); /* rewinding file to be sure that file will be read from the begining */
+  rewind(JDS_IN); /* rewinding file to be sure that file will be read from the beginning */
   max_spectra_number = (file_size - sizeof(headerjds)) / bps / Nf[headerjds.DSPP.Offt] / Nc; /* calculating number of spectra (time samples) in the file */
   fseek(JDS_IN, sizeof(headerjds), SEEK_SET); /* fseek to position after estimating file size */
-  rewind(JDS_IN2); /* rewinding file to be sure that file will be read from the begining */
+  rewind(JDS_IN2); /* rewinding file to be sure that file will be read from the beginning */
   fseek(JDS_IN2, 0L, SEEK_END); /* seeking end of file */
   file_size2 = ftell(JDS_IN2); /* if you use ftell, then you must open the file in binary mode. If you open it in text mode, ftell only returns a "cookie" that is only usable by fseek */
-  rewind(JDS_IN2); /* rewinding file to be sure that file will be read from the begining */
+  rewind(JDS_IN2); /* rewinding file to be sure that file will be read from the beginning */
   max_spectra_number2 = (file_size2 - sizeof(headerjds2)) / bps / Nf2[headerjds2.DSPP.Offt] / Nc2; /* calculating number of spectra (time samples) in the file */
   fseek(JDS_IN2, sizeof(headerjds2), SEEK_SET); /* fseek to position after estimating file size */
 
@@ -214,7 +216,7 @@ int main(int argc, char *argv[], char *arge[])
     return -1;
   }
 
-  /* ALLOCATING MEMORY FOR DATA ARRAYS */
+  /* allocating memory for data arrays */
   printf("%s> Allocating data arrays.\n", argv[0]);
 
   raw_data = (int *) calloc(bps * headerjds.DSPP.Wb * Nc, sizeof(float));  /* allocate memory to read raw data in file */
@@ -226,9 +228,9 @@ int main(int argc, char *argv[], char *arge[])
   {
     if (fread(raw_data, bps * headerjds.DSPP.Wb * Nc, 1, JDS_IN) > 0)
     {
-      printf("%s> Just read raw data record #%06d\r", argv[0], spectrum_counter); /* spectrum counter is initialized at the begining of the program */
+      printf("%s> Just read raw data record #%06d\r", argv[0], spectrum_counter); /* spectrum counter is initialized at the beginning of the program */
     }
-    /* WRITING IN THE OUTPUT FILE (ONE SPECTRUM AT A TIME) */
+    /* writing in the output file (one spectrum at a time) */
     fwrite(raw_data, bps * headerjds.DSPP.Wb * Nc, 1, JDS_OUT);
     spectrum_counter++;
   }
@@ -237,9 +239,9 @@ int main(int argc, char *argv[], char *arge[])
   {
     if (fread(raw_data2, bps * headerjds2.DSPP.Wb * Nc2, 1, JDS_IN2) > 0)
     {
-      printf("%s> Just read raw data record #%06d\r", argv[0], spectrum_counter + spectrum_counter2); /* spectrum counter is initialized at the begining of the program */
+      printf("%s> Just read raw data record #%06d\r", argv[0], spectrum_counter + spectrum_counter2); /* spectrum counter is initialized at the beginning of the program */
     }
-    /* WRITING IN THE OUTPUT FILE (ONE SPECTRUM AT A TIME) */
+    /* writing in the output file (one spectrum at a time) */
     fwrite(raw_data2, bps * headerjds2.DSPP.Wb * Nc2, 1, JDS_OUT);
     spectrum_counter2++;
   }

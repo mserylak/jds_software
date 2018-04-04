@@ -4,13 +4,13 @@
 #include <math.h>
 #include "jds.h"
 
-/* FUNCTION EXTRACTING BIT VALUES FROM INTEGER VARIABLE */
+/* function extracting bit values from integer variable */
 unsigned int getBits(int x, int p, int n)
 {
   return (x >> (p + 1 - n)) & ~(~0 << n); /* read "n" bits at "p" position from the "x" variable, WARNING: position should be rightmost bit from interesting range */
 }
 
-/* FUNCTION OUTPUTS THE CONTENTS OF THE HEADER */
+/* function outputs the contents of the header */
 int dumpheaderjds(struct FHEADER headerjds)
 {
   printf("dumpheaderjds> name:                   %s (original name of the file in ddmmyy_hhmmss.jds format)\n", headerjds.name);
@@ -66,10 +66,10 @@ int dumpheaderjds(struct FHEADER headerjds)
   printf("dumpheaderjds> DSPP.Smd:               %d (0:both streams with spectra; 1:stream with A spectra and stream B with correlation (A*B))\n", headerjds.DSPP.Smd);
   printf("dumpheaderjds>                           (2:stream B with spectra and stream B with correlation (A*B))\n");
   printf("dumpheaderjds>                           (3:stream A with spectra (A+B) and stream B with correlation (A*B))\n");
-  printf("dumpheaderjds> DSPP.Offt:              %d (0:full spectrum, 8192 samples; 1:lower half of spectrum, 4096 samples; 2:top half of spectrum, 4096 samples; 3:tunable)\n", headerjds.DSPP.Offt);
-  printf("dumpheaderjds> DSPP.Lb:                %d (low cutoff of the spectrum in samples)\n", headerjds.DSPP.Lb);
-  printf("dumpheaderjds> DSPP.Hb:                %d (high cutoff of the spectrum in samples)\n", headerjds.DSPP.Hb);
-  printf("dumpheaderjds> DSPP.Wb:                %d (spectrum width in samples)\n", headerjds.DSPP.Wb);
+  printf("dumpheaderjds> DSPP.Offt:              %d (0:full spectrum, 8192 channels; 1:lower half of spectrum, 4096 channels; 2:top half of spectrum, 4096 channels; 3:tunable)\n", headerjds.DSPP.Offt);
+  printf("dumpheaderjds> DSPP.Lb:                %d (low cut off of the spectrum in channels)\n", headerjds.DSPP.Lb);
+  printf("dumpheaderjds> DSPP.Hb:                %d (high cut off of the spectrum in channels)\n", headerjds.DSPP.Hb);
+  printf("dumpheaderjds> DSPP.Wb:                %d (spectrum width in channels)\n", headerjds.DSPP.Wb);
   printf("dumpheaderjds> DSPP.NAvr:              %d (number of averaged spectra)\n", headerjds.DSPP.NAvr);
   printf("dumpheaderjds> DSPP.CAvr:              %d (spectrum averaging, 0:on; 1:off) \n", headerjds.DSPP.CAvr);
   printf("dumpheaderjds> DSPP.Weight:            %d (weighting window, 0:on; 1:off)\n", headerjds.DSPP.Weight);
@@ -92,55 +92,158 @@ int dumpheaderjds(struct FHEADER headerjds)
   return 0;
 }
 
-/* FUNCTION CONVERTS THE DSPZ FLOATING POINT DATA FORMAT TO CONVENTIONAL 32-BIT FLOATING POINT DATA FORMAT */
-int DSPZ2Float(struct FHEADER *headerjds, unsigned int *rawdata, int nbsamp, float *dataf)
+/* function converts the dspz floating point data format to conventional 32-bit floating point data format */
+int DSPZ2Float(struct FHEADER *headerjds, unsigned int *rawData, int numberChannels, int correlation, float *dataFloat)
 {
-  int i;
+  int i, Nc;
   float SNrm, WNrm;
-  int expn, sign;
-  unsigned int mantissa;
-  i = expn = sign = mantissa = 0;
+  int expn, sign, expnRe, signRe, expnIm, signIm;
+  unsigned int mantissa, mantissaRe, mantissaIm;
+  unsigned int stream, streamRe, streamIm;
+  i = Nc = 0;
+  expn = sign = mantissa = 0;
+  expnRe = signRe = mantissaRe = 0;
+  expnIm = signIm = mantissaIm = 0;
   SNrm = WNrm = 0.0;
-  if (headerjds->DSPP.Mode == 0) /* data in the waveform mode */
+  if (correlation > 1) /* data in standard modes: waveform, spectral or standard correlation */
   {
-    WNrm = 1.0 / 32768.0; /* norming */
-    for (i = 0; i < nbsamp; i++)
+    if (headerjds->DSPP.Mode == 0) /* data in the waveform mode */
     {
-      dataf[i] = rawdata[i] * WNrm; /* conversion from DSP float to PC float */
+      WNrm = 1.0 / 32768.0; /* normalisation */
+      for (i = 0; i < numberChannels; i++)
+      {
+        dataFloat[i] = rawData[i] * WNrm; /* conversion from DSP float to PC float */
+      }
+    }
+    else if (headerjds->DSPP.Mode == 1) /* data in the spectral mode */
+    {
+      SNrm = 4.0 * 2.0 * 1024.0 / 4294967296.0 / headerjds->DSPP.NAvr; /* normalisation */
+      for (i = 0; i < numberChannels; i++)
+      {
+        expn = getBits(rawData[i], 4, 5); /* bits 4...0 - exponent */
+        mantissa = getBits(rawData[i], 31, 26); /* bits 31...6 - mantissa value */
+        dataFloat[i] = (float)mantissa / pow(2.0, expn) / SNrm; /* conversion from DSPZ float to PC float */
+      }
+    }
+    else if (headerjds->DSPP.Mode == 2) /* data in the standard correlation mode */
+    {
+      SNrm = 4.0 * 2.0 * 1024.0 / 4294967296.0 / headerjds->DSPP.NAvr; /* normalisation */
+      for (i = 0; i < numberChannels; i++)
+      {
+        expn = getBits(rawData[i], 4, 5); /* bits 4...0 - exponent */
+        if ((getBits(rawData[i], 5, 1)) == 1) /* bit 5 - the sign of mantissa in standard correlation mode 0 - plus / 1 - minus */
+        {
+          sign = -1.0;
+        }
+        else if ((getBits(rawData[i], 5, 1)) == 0)
+        {
+          sign = 1.0;
+        }
+        mantissa = getBits(rawData[i], 31, 26); /* bits 31...6 - mantissa absolute value */
+        dataFloat[i] = sign * (float)mantissa / pow(2.0, expn) / SNrm; /* conversion from DSP float to PC float */
+      }
     }
   }
-  else if (headerjds->DSPP.Mode == 1) /* data in the spectral mode */
+  else if (correlation == 0) /* extracts stream 3 (real value of correlation streams A and B) from the non-standard correlation DSPZ data  */
   {
-    SNrm = 4.0 * 2.0 * 1024.0 / 4294967296.0 / headerjds->DSPP.NAvr; /* norming */
-    for (i = 0; i < nbsamp; i++)
+    Nc = 4;
+    SNrm = 4.0 * 2.0 * 1024.0 / 4294967296.0 / headerjds->DSPP.NAvr; /* normalisation */
+    for (i = 0; i < numberChannels; i++)
     {
-      expn = getBits(rawdata[i], 4, 5); /* bits 4...0 - exponent */
-      mantissa = getBits(rawdata[i], 31, 26); /* bits 31...6 - mantissa value */
-      dataf[i] = (float)mantissa / pow(2.0, expn) / SNrm; /* conversion from DSPZA161111_150900.jds float to PC float */
-    }
-  }
-  else if (headerjds->DSPP.Mode == 2) /* data in the correlation mode */
-  {
-    SNrm = 4 * 2 * 1024.0 / 4294967296.0 / headerjds->DSPP.NAvr; /* norming */
-    for (i = 0; i < nbsamp; i++)
-    {
-      expn = getBits(rawdata[i], 4, 5); /* bits 4...0 - exponent */
-      if ((getBits(rawdata[i], 5, 1)) == 1) /* bit 5 - the sign of mantissa in correlation mode 0 - plus / 1 - minus */
+      stream = rawData[i * Nc + 0]; /* select samples from 3rd stream */
+      expn = getBits(stream, 4, 5); /* bits 4...0 - exponent */
+      if ((getBits(stream, 5, 1)) == 1) /* bit 5 - the sign of mantissa in correlation mode 0 - plus / 1 - minus */
       {
         sign = -1.0;
       }
-      else if ((getBits(rawdata[i], 5, 1)) == 0)
+      else if ((getBits(stream, 5, 1)) == 0)
       {
         sign = 1.0;
       }
-      mantissa = getBits(rawdata[i], 31, 26); /* bits 31...6 - mantissa absolute value */
-      dataf[i] = sign * (float)mantissa / pow(2.0, expn) / SNrm; /* conversion from DSP float to PC float */
+      mantissa = getBits(stream, 31, 26); /* bits 31...6 - mantissa absolute value */
+      dataFloat[i] = sign * (float)mantissa / pow(2.0, expn) / SNrm; /* conversion from DSP float to PC float */
+    }
+  }
+  else if (correlation == 1) /* extracts power from the non-standard correlation DSPZ data (sqrt(A^2 + B^2)) */
+  {
+    Nc = 4;
+    SNrm = 4.0 * 2.0 * 1024.0 / 4294967296.0 / headerjds->DSPP.NAvr; /* normalisation */
+    for (i = 0; i < numberChannels; i++)
+    {
+        streamRe = rawData[i * Nc + 2];
+        streamIm = rawData[i * Nc + 3];
+        expnRe = getBits(streamRe, 4, 5); /* bits 4...0 - exponent */
+        expnIm = getBits(streamIm, 4, 5); /* bits 4...0 - exponent */
+        if ((getBits(streamRe, 5, 1)) == 1) /* bit 5 - the sign of mantissa in correlation mode 0 - plus / 1 - minus */
+        {
+          signRe = -1.0;
+        }
+        if ((getBits(streamIm, 5, 1)) == 1) /* bit 5 - the sign of mantissa in correlation mode 0 - plus / 1 - minus */
+        {
+          signIm = -1.0;
+        }
+        else if ((getBits(streamRe, 5, 1)) == 0)
+        {
+          signRe = 1.0;
+        }
+        else if ((getBits(streamIm, 5, 1)) == 0)
+        {
+          signIm = 1.0;
+        }
+        mantissaRe = getBits(streamRe, 31, 26); /* bits 31...6 - mantissa absolute value */
+        mantissaIm = getBits(streamIm, 31, 26); /* bits 31...6 - mantissa absolute value */
+        dataFloat[i] = sqrt(pow((signRe * (float)mantissaRe / pow(2.0, expnRe) / SNrm), 2.0) + pow((signIm * (float)mantissaIm / pow(2.0, expnIm) / SNrm), 2.0)); /* conversion from DSP float to PC float */
     }
   }
   return 0;
 }
 
-/* FUNCTION REVERSING ARRAY */
+#if 0
+void dspz_data_tr(unsigned int* buffer, float* spectra[], int numberChannels)
+   float _SNrm = 4.0 * 2.0 * 1024.0 / 4294967296.0 / headerjds->DSPP.NAvr;
+   int i, j;
+   for (i = 0; i < numberChannels; i++)
+   {
+      for (j = 0; j < Nc; j++)
+      {
+         unsigned int sample = buffer[i * Nc + j];
+         int expn = (sample & 0x1f);
+         unsigned int mant = (sample & 0xFFFFFFC0);
+         int sign = (sample & 0x20);
+         if (!sign)
+           spectra[k][j] = (float4)mantissa / pow(2.0, expn) * _SNrm;
+         else
+           spectra[k][j] = -(float4)mantissa / pow(2.0, expn) * _SNrm;
+      }
+   }
+}
+#endif
+
+
+/* function getting service data from 2 last samples per stream, 4 in total, warning: only for data taken after 2008 */
+void DSPZ2Service(struct FHEADER *headerjds, unsigned int *rawData, int numberChannels, int Verbose, int *corruptedSpectrumFlag)
+{
+  int CntA1_bits26_0, CntB1_bits16_0, CntA2_bit31, CntA2_bit30, CntA2_bits29_0, CntB2_bit31, CntB2_bit30, CntB2_bits29_0;
+  *corruptedSpectrumFlag = 0; /* this flag has to be reset every time a new spectrum is read */
+  CntA2_bit31 = getBits(rawData[(numberChannels) - 2], 31, 1); /* 1 - CntA2 - bit 31 - overflow flag ADC-A for accumulation time FFT */
+  CntA2_bit30 = getBits(rawData[(numberChannels) - 2], 30, 1); /* 2 - CntA2 - bit 30 - CRC flag in stream A */
+  CntB2_bit31 = getBits(rawData[(numberChannels) - 1], 31, 1); /* 3 - CntB2 - bit 31 - overflow flag ADC-B for accumulation time FFT */
+  CntB2_bit30 = getBits(rawData[(numberChannels) - 1], 30, 1); /* 4 - CntB2 - bit 30 - CRC flag in stream B */
+  CntA2_bits29_0 = getBits(rawData[(numberChannels) - 2], 29, 30); /* 5 - CntA2 - bits 29..0 - count of us since start of recording */
+  CntB2_bits29_0 = getBits(rawData[(numberChannels) - 1], 29, 30); /* 6 - CntB2 - bits 29..0 - count of the number of issued FFTs since the start of recording (might be reset to 0 if a hardware error) */
+  CntA1_bits26_0 = getBits(rawData[(numberChannels) - 4], 26, 27); /* 7 - CntA1 - bits 26..0 - the counter of phase of second (number of cycles of the ADC from the rise of the PPS to first sample in the data block used for current FFT) */
+  CntB1_bits16_0 = getBits(rawData[(numberChannels) - 3], 16, 17); /* 8 - CntB1 - bits 16..0 - count seconds in the day */
+  if (CntA2_bit31 == 1 || CntA2_bit30 == 1 || CntA2_bits29_0 == 1 || CntB2_bit31 == 1 || CntB2_bit30 == 1 || CntB2_bits29_0 == 1)
+  {
+    *corruptedSpectrumFlag = 1;
+    if (Verbose == 2 || Verbose == 3)
+    {
+      printf("DSPZ2service> Zapping corrupted spectrum due to ADC-A: %d CRC-A: %d ADC-B: %d CRC-B: %d us: %d FFT: %d phase-of-sec: %d count-sec-day: %d\n", CntA2_bit31, CntA2_bit30, CntB2_bit31, CntB2_bit30, CntA2_bits29_0, CntB2_bits29_0, CntA1_bits26_0, CntB1_bits16_0);
+    }
+  }
+}
+
+/* function reversing array */
 void reverseArray(float array[], int size)
 {
   int i;
@@ -155,13 +258,13 @@ void reverseArray(float array[], int size)
   }
 }
 
-/* COMPARISON FUNCTION FOR qsort AND readZapFile */
+/* comparison function for qsort and readZapFile */
 int compareFunction(const void * a, const void * b)
 {
   return ( *(int*)a - *(int*)b );
 }
 
-/* FUNCTION READS THE FILE WITH LIST OF BAD CHANNELS */
+/* function reads the file with list of bad channels */
 int readZapFile(char *zapFileName, int *zapChannels, int *counter)
 {
   FILE *ZAP_FILE;
@@ -196,30 +299,7 @@ int readZapFile(char *zapFileName, int *zapChannels, int *counter)
   return 1;
 }
 
-/* FUNCTION GETTING SERVICE DATA FROM 2 LAST SAMPLES PER STREAM, 4 IN TOTAL, WARNING: ONLY FOR DATA TAKEN AFTER 2008 */
-void DSPZ2Service(struct FHEADER *headerjds, unsigned int *RawData, int NumberSamples, int Verbose, int *CorruptedSpectrumFlag)
-{
-  int CntA1_bits26_0, CntB1_bits16_0, CntA2_bit31, CntA2_bit30, CntA2_bits29_0, CntB2_bit31, CntB2_bit30, CntB2_bits29_0;
-  *CorruptedSpectrumFlag = 0; /* this flag has the be reset every time a new spectrum is read */
-  CntA2_bit31 = getBits(RawData[(NumberSamples)-2], 31, 1); /* 1 - CntA2 - bit 31 - overflow flag ADC-A for accumulation time FFT */
-  CntA2_bit30 = getBits(RawData[(NumberSamples)-2], 30, 1); /* 2 - CntA2 - bit 30 - CRC flag in stream A */
-  CntB2_bit31 = getBits(RawData[(NumberSamples)-1], 31, 1); /* 3 - CntB2 - bit 31 - overflow flag ADC-B for accumulation time FFT */
-  CntB2_bit30 = getBits(RawData[(NumberSamples)-1], 30, 1); /* 4 - CntB2 - bit 30 - CRC flag in stream B */
-  CntA2_bits29_0 = getBits(RawData[(NumberSamples)-2], 29, 30); /* 5 - CntA2 - bits 29..0 - count of us since start of recording */
-  CntB2_bits29_0 = getBits(RawData[(NumberSamples)-1], 29, 30); /* 6 - CntB2 - bits 29..0 - count of the number of issued FFTs since the start of recording (might be reset to 0 if a hardware error) */
-  CntA1_bits26_0 = getBits(RawData[(NumberSamples)-4], 26, 27); /* 7 - CntA1 - bits 26..0 - the counter of phase of second (number of cycles of the ADC from the rise of the PPS to first sample in the data block used for current FFT) */
-  CntB1_bits16_0 = getBits(RawData[(NumberSamples)-3], 16, 17); /* 8 - CntB1 - bits 16..0 - count seconds in the day */
-  if (CntA2_bit31 == 1 || CntA2_bit30 == 1 || CntA2_bits29_0 == 1 || CntB2_bit31 == 1 || CntB2_bit30 == 1 || CntB2_bits29_0 == 1)
-  {
-    *CorruptedSpectrumFlag = 1;
-    if (Verbose == 2 || Verbose == 3)
-    {
-      printf("DSPZ2service> Zapping corrupted spectrum due to ADC-A: %d CRC-A: %d ADC-B: %d CRC-B: %d us: %d FFT: %d phase-of-sec: %d count-sec-day: %d\n", CntA2_bit31, CntA2_bit30, CntB2_bit31, CntB2_bit30, CntA2_bits29_0, CntB2_bits29_0, CntA1_bits26_0, CntB1_bits16_0);
-    }
-  }
-}
-
-/* CALCULATE MOVING AVERAGE (RESULTING ARRAY WILL HAVE N-M-1 ELEMENTS) */
+/* calculate moving average (resulting array will have n-m-1 elements) */
 void movingAverage(int arraySize, float *inputArray, int runningMeanWindow, float *runningMeanArray)
 {
   int i, runningMeanArraySize, counter;
@@ -238,7 +318,7 @@ void movingAverage(int arraySize, float *inputArray, int runningMeanWindow, floa
   }
 }
 
-/* COMPUTE A RUNNING MEDIAN OF ONE ARRAY */
+/* compute a running median of one array */
 void movingMedian(int arraySize, float *inputArray, int movingMedianWindow, float *movingMedianArray)
 {
   int i, j, movingMedianArraySize;
@@ -271,7 +351,7 @@ void movingMedian(int arraySize, float *inputArray, int movingMedianWindow, floa
     }
   }
   /* this bit of the code extends the moving median by adding the signal which is lost during its calculation (N - M + 1) */
-  for (i = 1; i < (int) movingMedianWindow/2; i++) /* calculate the average value for begining of the spectrum */
+  for (i = 1; i < (int) movingMedianWindow/2; i++) /* calculate the average value for beginning of the spectrum */
   {
     for (j = 0; j < 2 * i; j++) /* this loop changes the number of values from which the average is calculated */
     {
@@ -306,7 +386,7 @@ void movingMedian(int arraySize, float *inputArray, int movingMedianWindow, floa
   }
 }
 
-/* CALCULATE AVERAGE VALUE */
+/* calculate average value */
 float averageValue(unsigned int n, float *x)
 {
   unsigned int i;
@@ -320,7 +400,7 @@ float averageValue(unsigned int n, float *x)
   return average;
 }
 
-/* CALCULATE STANDARD DEVIATION */
+/* calculate standard deviation */
 float standardDeviation(unsigned int n, float *x)
 {
   unsigned int i;
@@ -343,11 +423,11 @@ float standardDeviation(unsigned int n, float *x)
   return sigma;
 }
 
-/* REMOVES THE "EXTENSION" FROM myString WHICH IS THE STRING TO PROCESS, extensionSeparator IS
-THE EXTENSION SEPARATOR (ONLY ONE CHARACTER), pathSeparator IS THE PATH SEPARATOR (ALSO ONLY
-ONE CHARACTER, 0 MEANS TO IGNORE), RETURNS AN ALLOCATED STRING IDENTICAL TO THE ORIGINAL BUT
-WITH THE EXTENSION REMOVED. IT MUST BE FREED WHEN YOU'RE FINISHED WITH IT. IF YOU PASS IN NULL
-OR THE NEW STRING CAN'T BE ALLOCATED, IT RETURNS NULL */
+/* removes the "extension" from myString which is the string to process, extensionSeparator is
+the extension separator (only one character), pathSeparator is the path separator (also only
+one character, 0 means to ignore), returns an allocated string identical to the original but
+with the extension removed. it must be freed when you're finished with it. if you pass in null
+or the new string can't be allocated, it returns null */
 char *removeExtension (char* myString, char extensionSeparator, char pathSeparator)
 {
   char *returnString, *lastExtensionSeparator, *lastPathSeparator;
@@ -375,7 +455,7 @@ char *removeExtension (char* myString, char extensionSeparator, char pathSeparat
   }
   if (lastExtensionSeparator != NULL) /* if it has an extension separator... */
   {
-    if (lastPathSeparator != NULL) /* ...and it's before the extenstion separator... */
+    if (lastPathSeparator != NULL) /* ...and it's before the extension separator... */
     {
       if (lastPathSeparator < lastExtensionSeparator)
       {
@@ -391,7 +471,7 @@ char *removeExtension (char* myString, char extensionSeparator, char pathSeparat
   return returnString;
 }
 
-/* CONVERT DATE TO JULIAN DATE */
+/* convert date to Julian date */
 double gregorian2Julian(int gregorianYear, int gregorianMonth, int gregorianDay, double gregorianHour, double gregorianMinute, double gregorianSecond)
 {
   double decimalDay, correctionA, correctionB, decimalYear, julianDate, integerYear, integerMonth;

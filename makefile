@@ -12,5 +12,5 @@ jdsadd:	jdsadd.c
 jds2fil:	jds2fil.c
 	gcc -Wall -o jds2fil jds2fil.c jdstools.c -lm
 
-#clean:	all
-#	rm -f headerjds jds2info jdsadd jds2fil
+clean:	all
+	rm -f headerjds jds2info jdsadd jds2fil

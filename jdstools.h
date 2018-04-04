@@ -1,7 +1,7 @@
 struct FHEADER headerjds;
 int dumpheaderjds(struct FHEADER headerjds);
-int DSPZ2Float(struct FHEADER *headerjds, unsigned int *rawdata, int nbsamp, float *dataf);
-void DSPZ2Service(struct FHEADER *headerjds, unsigned int *RawData, int NumberSamples, int Verbose, int *CorruptedSpectrumFlag);
+int DSPZ2Float(struct FHEADER *headerjds, unsigned int *rawData, int numberChannels, int correlation, float *dataFloat);
+void DSPZ2Service(struct FHEADER *headerjds, unsigned int *rawData, int numberChannels, int Verbose, int *corruptedSpectrumFlag);
 unsigned int getBits(int x, int p, int n);
 void reverseArray(float array[], int size);
 int readZapFile(char *zapFileName, int *zapChannels, int *counter);
