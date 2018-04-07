@@ -105,7 +105,7 @@ int DSPZ2Float(struct FHEADER *headerjds, unsigned int *rawData, int numberChann
   expnRe = signRe = mantissaRe = 0;
   expnIm = signIm = mantissaIm = 0;
   SNrm = WNrm = 0.0;
-  if (correlation > 1) /* data in standard modes: waveform, spectral or standard correlation */
+  if (correlation > 4) /* data in standard modes: waveform, spectral or standard correlation */
   {
     if (headerjds->DSPP.Mode == 0) /* data in the waveform mode */
     {
@@ -144,13 +144,14 @@ int DSPZ2Float(struct FHEADER *headerjds, unsigned int *rawData, int numberChann
       }
     }
   }
-  else if (correlation == 0) /* extracts stream 3 (real value of correlation streams A and B) from the non-standard correlation DSPZ data  */
+//  else if (correlation => 0 && correlation <= 3) /* extract streams 0 to 3 from the non-standard correlation DSPZ data */
+  else if (correlation == 0 || correlation == 1 || correlation == 2 || correlation == 3)
   {
     Nc = 4;
     SNrm = 4.0 * 2.0 * 1024.0 / 4294967296.0 / headerjds->DSPP.NAvr; /* normalisation */
     for (i = 0; i < numberChannels; i++)
     {
-      stream = rawData[i * Nc + 0]; /* select samples from 3rd stream */
+      stream = rawData[i * Nc + 3]; /* select samples from 3rd stream */
       expn = getBits(stream, 4, 5); /* bits 4...0 - exponent */
       if ((getBits(stream, 5, 1)) == 1) /* bit 5 - the sign of mantissa in correlation mode 0 - plus / 1 - minus */
       {
@@ -164,7 +165,7 @@ int DSPZ2Float(struct FHEADER *headerjds, unsigned int *rawData, int numberChann
       dataFloat[i] = sign * (float)mantissa / pow(2.0, expn) / SNrm; /* conversion from DSP float to PC float */
     }
   }
-  else if (correlation == 1) /* extracts power from the non-standard correlation DSPZ data (sqrt(A^2 + B^2)) */
+  else if (correlation == 4) /* extracts power from the non-standard correlation DSPZ data (sqrt(A^2 + B^2)) */
   {
     Nc = 4;
     SNrm = 4.0 * 2.0 * 1024.0 / 4294967296.0 / headerjds->DSPP.NAvr; /* normalisation */

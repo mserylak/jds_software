@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
   averageBandpassMedianSmoothed = 0.0;
   sigmaBandpassMedianSmoothed = 0.0;
   streamOperation = 0; /* stream handling, 0 -> A-B, 1 -> A+B, 2 -> A, 3 -> B, 4 -> B-A */
-  correlationStreamOperation = 1; /* correlation stream handling, 0 -> Re(A*B), 1 -> power(A*B) */
+  correlationStreamOperation = 4; /* correlation stream handling, 0 -> A, 1 -> B, 2 -> Re(A*B), 3 -> Im(A*B), 4 -> power(A*B) */
   HeaderLess = 0; /* do not write header */
   CorruptedFlag = 0; /* flag signalling corrupted spectrum (ADC or CRC error) */
   NoCRC = 0; /* flag activating removal of spectra with ADC overflows and CRC errors */
@@ -92,9 +92,9 @@ int main(int argc, char *argv[])
     printf("-noinv       Turn off inverting order of frequency channels (default: invert)\n");
     printf("-zap         File with channel numbers to be zapped (input in column, numbers will be sorted upon opening)\n");
     printf("-clip        Clip channels using median smoothed difference (default: %.1f sigma, smoothing window of %d spectra)\n", clipValue, movingMeanWindow);
-    printf("-stream      Stream operation (A-B: 0, A+B: 1, A: 2, B: 3, B-A: 4; default: %d).\n", streamOperation);
+    printf("-stream      Stream operation (A-B: 0, A+B: 1, A: 2, B: 3, B-A: 4; disabled when -corr is used; default: %d).\n", streamOperation);
     printf("-nocrc       Disable automatic removal of spectra with ADC overflow and CRC errors (n.b. use when converting pre-Aug 2008 data, default: remove).\n");
-    printf("-corr        Process raw data in non-standard DSPZ correlation mode (Re(A*B): 0; power(A*B): 1; default: %d).\n", correlationStreamOperation);
+    printf("-corr        Process raw data in non-standard DSPZ correlation mode (A: 0; B: 1; Re(A*B): 2; Im(A*B): 3; power(A*B): 4; default: %d).\n", correlationStreamOperation);
     printf("-o           Give new name of output file (default: add .fil to original file name trunk)\n");
     printf("-v           Verbose mode\n");
     printf("-vv          Very verbose mode\n");
@@ -219,7 +219,7 @@ int main(int argc, char *argv[])
       {
         printf("%s> WARNING Special correlation mode selected! Most of options for data conversion are switched off!\n", argv[0]);
         correlationStreamOperation = atoi(argv[argument+1]);
-        if (correlationStreamOperation < 0 || correlationStreamOperation > 1)
+        if (correlationStreamOperation < 0 || correlationStreamOperation > 4)
         {
           fprintf(stderr, "%s> Error parsing -corr option.\n", argv[0]);
           return -1;
@@ -496,14 +496,7 @@ int main(int argc, char *argv[])
       }
       if (CorrelationDSPZ == 1)
       {
-        if (correlationStreamOperation == 0)
-        {
-          DSPZ2Float(&headerjds, rawData, spectrumWidth * Nc, correlationStreamOperation, dataFloat); /* function converting raw data to floats */
-        }
-        else if (correlationStreamOperation == 1)
-        {
-          DSPZ2Float(&headerjds, rawData, spectrumWidth * Nc, correlationStreamOperation, dataFloat); /* function converting raw data to floats */
-        }
+        DSPZ2Float(&headerjds, rawData, spectrumWidth * Nc, correlationStreamOperation, dataFloat); /* function converting raw data to floats */
       }
       else
       {
@@ -523,7 +516,7 @@ int main(int argc, char *argv[])
         }
       }
 
-      /* adding/subtracting stream a & b and removing diagnostic samples */
+      /* adding/subtracting stream A & B and removing diagnostic samples */
       for (i = 0; i < spectrumWidth * Nc; i++)
       {
         if (Nc == 2) /* for more than one stream... */
@@ -593,7 +586,6 @@ int main(int argc, char *argv[])
     }
   }
 
-
   /* loop reading, converting, performing operations and final writing of data */
   rewind(JDS_IN); /* rewinding file to be sure that file will be read from the beginning */
   fseek(JDS_IN, sizeof(headerjds), SEEK_SET); /* fseek to position after header */
@@ -608,14 +600,7 @@ int main(int argc, char *argv[])
     }
     if (CorrelationDSPZ == 1)
     {
-      if (correlationStreamOperation == 0)
-      {
-        DSPZ2Float(&headerjds, rawData, spectrumWidth * Nc, correlationStreamOperation, dataFloat); /* function converting raw data to floats */
-      }
-      else if (correlationStreamOperation == 1)
-      {
-        DSPZ2Float(&headerjds, rawData, spectrumWidth * Nc, correlationStreamOperation, dataFloat); /* function converting raw data to floats */
-      }
+      DSPZ2Float(&headerjds, rawData, spectrumWidth * Nc, correlationStreamOperation, dataFloat); /* function converting raw data to floats */
     }
     else
     {
@@ -668,13 +653,9 @@ int main(int argc, char *argv[])
           dataReady[i] = dataFloat[2 * i + 1] - dataFloat[2 * i]; /* ... subtract stream B from stream A */
         }
       }
-      else if (Nc == 4)
+      else if (Nc == 4 || Nc == 1)
       {
         dataReady[i] = dataFloat[i]; /* extract data stream 3: real part of A*B */
-      }
-      else
-      {
-        dataReady[i] = dataFloat[i]; /* if only one stream present pass it without doing anything */
       }
 
       /* removing values for last, diagnostic samples for data taken before 2008 set to 1 else use 2 */
