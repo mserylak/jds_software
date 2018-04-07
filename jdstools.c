@@ -144,8 +144,7 @@ int DSPZ2Float(struct FHEADER *headerjds, unsigned int *rawData, int numberChann
       }
     }
   }
-//  else if (correlation => 0 && correlation <= 3) /* extract streams 0 to 3 from the non-standard correlation DSPZ data */
-  else if (correlation == 0 || correlation == 1 || correlation == 2 || correlation == 3)
+  else if (correlation == 0 || correlation == 1 || correlation == 2 || correlation == 3) /* extract streams 0 to 3 from the non-standard correlation DSPZ data */
   {
     Nc = 4;
     SNrm = 4.0 * 2.0 * 1024.0 / 4294967296.0 / headerjds->DSPP.NAvr; /* normalisation */
@@ -198,28 +197,6 @@ int DSPZ2Float(struct FHEADER *headerjds, unsigned int *rawData, int numberChann
   }
   return 0;
 }
-
-#if 0
-void dspz_data_tr(unsigned int* buffer, float* spectra[], int numberChannels)
-   float _SNrm = 4.0 * 2.0 * 1024.0 / 4294967296.0 / headerjds->DSPP.NAvr;
-   int i, j;
-   for (i = 0; i < numberChannels; i++)
-   {
-      for (j = 0; j < Nc; j++)
-      {
-         unsigned int sample = buffer[i * Nc + j];
-         int expn = (sample & 0x1f);
-         unsigned int mant = (sample & 0xFFFFFFC0);
-         int sign = (sample & 0x20);
-         if (!sign)
-           spectra[k][j] = (float4)mantissa / pow(2.0, expn) * _SNrm;
-         else
-           spectra[k][j] = -(float4)mantissa / pow(2.0, expn) * _SNrm;
-      }
-   }
-}
-#endif
-
 
 /* function getting service data from 2 last samples per stream, 4 in total, warning: only for data taken after 2008 */
 void DSPZ2Service(struct FHEADER *headerjds, unsigned int *rawData, int numberChannels, int Verbose, int *corruptedSpectrumFlag)
