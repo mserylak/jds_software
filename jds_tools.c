@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "jds.h"
+#include "jds_header.h"
 
 /* function extracting bit values from integer variable */
 unsigned int getBits(int x, int p, int n)
@@ -144,6 +144,7 @@ int DSPZ2Float(struct FHEADER *headerjds, unsigned int *rawData, int numberChann
       }
     }
   }
+//  else if (correlation => 0 && correlation <= 3) /* extract streams 0 to 3 from the non-standard correlation DSPZ data */
   else if (correlation == 0 || correlation == 1 || correlation == 2 || correlation == 3) /* extract streams 0 to 3 from the non-standard correlation DSPZ data */
   {
     Nc = 4;
@@ -198,6 +199,28 @@ int DSPZ2Float(struct FHEADER *headerjds, unsigned int *rawData, int numberChann
   return 0;
 }
 
+#if 0
+void dspz_data_tr(unsigned int* buffer, float* spectra[], int numberChannels)
+   float _SNrm = 4.0 * 2.0 * 1024.0 / 4294967296.0 / headerjds->DSPP.NAvr;
+   int i, j;
+   for (i = 0; i < numberChannels; i++)
+   {
+      for (j = 0; j < Nc; j++)
+      {
+         unsigned int sample = buffer[i * Nc + j];
+         int expn = (sample & 0x1f);
+         unsigned int mant = (sample & 0xFFFFFFC0);
+         int sign = (sample & 0x20);
+         if (!sign)
+           spectra[k][j] = (float4)mantissa / pow(2.0, expn) * _SNrm;
+         else
+           spectra[k][j] = -(float4)mantissa / pow(2.0, expn) * _SNrm;
+      }
+   }
+}
+#endif
+
+
 /* function getting service data from 2 last samples per stream, 4 in total, warning: only for data taken after 2008 */
 void DSPZ2Service(struct FHEADER *headerjds, unsigned int *rawData, int numberChannels, int Verbose, int *corruptedSpectrumFlag)
 {
@@ -237,7 +260,7 @@ void reverseArray(float array[], int size)
 }
 
 /* comparison function for qsort and readZapFile */
-int compareFunction(const void * a, const void * b)
+int compareInt(const void * a, const void * b)
 {
   return ( *(int*)a - *(int*)b );
 }
@@ -270,7 +293,7 @@ int readZapFile(char *zapFileName, int *zapChannels, int *counter)
   /*for (i = 0; i < c; i++) {
     printf("%d\n", zapChannels[i]);
   }*/
-  qsort(zapChannels, c, sizeof(int), compareFunction);
+  qsort(zapChannels, c, sizeof(int), compareInt);
   /*for (i = 0; i < c; i++) {
     printf("%d\n", zapChannels[i]);
   }*/
@@ -318,7 +341,7 @@ void movingMedian(int arraySize, float *inputArray, int movingMedianWindow, floa
     {
       sortedArray[j] = inputArray[j + i]; /* input the data to array which will be sorted */
     }
-    qsort(sortedArray, movingMedianWindow, sizeof(float), compareFunction); /* sort the array with built in qsort C function */
+    qsort(sortedArray, movingMedianWindow, sizeof(float), compareInt); /* sort the array with built in qsort C function */
     if (movingMedianWindow % 2) /* calculate the median depending if the window is divisible by 2... */
     {
       tempMovingMedianArray[i] = sortedArray[movingMedianWindow / 2];
@@ -382,10 +405,9 @@ float averageValue(unsigned int n, float *x)
 float standardDeviation(unsigned int n, float *x)
 {
   unsigned int i;
-  float average, sigma_sum, average_sigma, sigma;
+  float average, sigma_sum, sigma;
   average = 0.0;
   sigma_sum = 0.0;
-  average_sigma = 0.0;
   for (i = 0; i < n; i++)
   {
     average += x[i];
@@ -397,7 +419,6 @@ float standardDeviation(unsigned int n, float *x)
   }
   sigma_sum /= (n - 1);
   sigma = sqrtf(sigma_sum);
-  average_sigma = sigma / sqrtf(n);
   return sigma;
 }
 

@@ -6,7 +6,7 @@ unsigned int getBits(int x, int p, int n);
 void reverseArray(float array[], int size);
 int readZapFile(char *zapFileName, int *zapChannels, int *counter);
 void movingAverage(int arraySize, float *inputArray, int runningMeanWindow, float *runningMeanArray);
-int compareFunction(const void * a, const void * b);
+int compareInt(const void * a, const void * b);
 void movingMedian(int arraySize, float *inputArray, int movingMedianWindow, float *movingMedianArray);
 float averageValue(unsigned int n, float *x);
 float standardDeviation(unsigned int n, float *x);

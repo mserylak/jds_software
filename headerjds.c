@@ -7,8 +7,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
-#include "jds.h" /* jds header definition*/
-#include "jdstools.h" /* definitions of header extraction and data conversion functions */
+#include "jds_header.h" /* jds header definition*/
+#include "jds_tools.h" /* definitions of header extraction and data conversion functions */
 
 /* initialization of structures... */
 struct FHEADER headerjds; /* global declaration of headerjds as variable of FHEADER type, globalna deklaracja zmiennej strukturalnej headerjds o budowie szablonu FHEADER */

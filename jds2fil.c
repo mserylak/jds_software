@@ -8,8 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "jds.h" /* jds header definition*/
-#include "jdstools.h" /* definitions of header extraction and data conversion functions */
+#include "jds_header.h" /* JDS header definition*/
+#include "jds_tools.h" /* definitions of header extraction and data conversion functions */
 
 /* initialization of functions ... */
 void send_string(char *string); /* functions used to write filterbank data files */

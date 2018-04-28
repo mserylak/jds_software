@@ -7,8 +7,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
-#include "jds.h" /* jds header definition*/
-#include "jdstools.h" /* definitions of header extraction and data conversion functions */
+#include "jds_header.h" /* JDS header definition*/
+#include "jds_tools.h" /* definitions of header extraction and data conversion functions */
 
 /* main body of the program */
 int main(int argc, char *argv[], char *arge[])

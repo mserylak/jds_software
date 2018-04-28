@@ -7,17 +7,15 @@
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
-#include "jds.h" /* jds header definition*/
-#include "jdstools.h" /* definitions of header extraction and data conversion functions */
+#include "jds_header.h" /* JDS header definition*/
+#include "jds_tools.h" /* definitions of header extraction and data conversion functions */
 
 int main(int argc, char *argv[], char *arge[])
 {
   int i, argument;
-  int spectrum_counter, max_spectra_number, spectrum_number, spectrum_width;
-  int spectrum_counter2, max_spectra_number2, spectrum_number2, spectrum_width2;
-  int number_channels, first_spec_chan_num, last_spec_chan_num;
-  int number_channels2, first_spec_chan_num2, last_spec_chan_num2;
-  int nbytes, nbytes2write, nbits, bps, byte;
+  int spectrum_counter, max_spectra_number, spectrum_width;
+  int spectrum_counter2, max_spectra_number2, spectrum_width2;
+  int bps;
   int jd, jm, jy, jhr, jmn;
   int jd2, jm2, jy2, jhr2, jmn2;
   int Verbose;
@@ -39,17 +37,9 @@ int main(int argc, char *argv[], char *arge[])
   /* preset options & default values */
   spectrum_counter = 0;
   spectrum_counter2 = 0;
-  spectrum_number = 0;
-  spectrum_number2 = 0;
-  first_spec_chan_num = 0; /* first spectral channel number */
-  first_spec_chan_num2 = 0; /* first spectral channel number */
-  last_spec_chan_num = 0; /* last spectral channel number */
-  last_spec_chan_num2 = 0; /* last spectral channel number */
   bps = 4; /* bytes per sample */
-  byte = 8; /* bytes per bit */
   max_spectra_number = 1e06;
   max_spectra_number2 = 1e06;
-  nbits = 32;
   Verbose = 0; /* verbose mode */
 
   /* available help */
@@ -134,13 +124,8 @@ int main(int argc, char *argv[], char *arge[])
   printf("%s> Observation recorded in file %s started on %04d/%02d/%02d at %02d:%02d:%02.3f\n", argv[0], jds_filename2, jy2, jm2, jd2, jhr2, jmn2, jsc2);
   printf("%s> Time stamp of first sample (MJD) in file %s: %.9lf\n", argv[0], jds_filename2, start_MJD2);
 
-  spectrum_width = headerjds.DSPP.Wb; /* original spectral width */
+  spectrum_width = headerjds.DSPP.Wb; /* original spectrum width */
   spectrum_width2 = headerjds2.DSPP.Wb;
-  first_spec_chan_num = 0; /* assigning value to variable defining first spectral channel number */
-  first_spec_chan_num2 = 0;
-  last_spec_chan_num = spectrum_width; /* assigning value to variable defining last spectral channel number */
-  last_spec_chan_num2 = spectrum_width2;
-
   sampling_time = 8192.0 / headerjds.DSPP.CLCfrq * headerjds.DSPP.NAvr; /* calculation of time resolution: full band spectrum / sampling ADC frequency * number of averaged spectra */
   sampling_time2 = 8192.0 / headerjds2.DSPP.CLCfrq * headerjds2.DSPP.NAvr; /* calculation of time resolution: full band spectrum / sampling ADC frequency * number of averaged spectra */
   printf("%s> File %s has sampling time: %f s\n", argv[0], jds_filename, sampling_time);
@@ -184,21 +169,14 @@ int main(int argc, char *argv[], char *arge[])
 
   channel_bw = headerjds.DSPP.CLCfrq / 16384.0; /* channel bandwidth: sampling ADC frequency * amount of samples per stream */
   channel_bw2 = headerjds2.DSPP.CLCfrq / 16384.0; /* channel bandwidth: sampling ADC frequency * amount of samples per stream */
-
-  number_channels = spectrum_width; /* use full spectrum width */
-  number_channels2 = spectrum_width2; /* use full spectrum width */
-  printf("%s> Number of channels in file %s: %d.\n", argv[0], jds_filename, number_channels);
-  printf("%s> Number of channels in file %s: %d.\n", argv[0], jds_filename2, number_channels2);
-
   freq_first = Nfmin[headerjds.DSPP.Offt] * channel_bw / 1.0e6; /* lowest observed frequency */
   freq_first2 = Nfmin2[headerjds2.DSPP.Offt] * channel_bw2 / 1.0e6; /* lowest observed frequency */
   freq_last = freq_first + Nf[headerjds.DSPP.Offt] * channel_bw / 1.0e6; /* highest observed frequency */
   freq_last2 = freq_first2 + Nf2[headerjds2.DSPP.Offt] * channel_bw2 / 1.0e6; /* highest observed frequency */
+  printf("%s> Number of channels in file %s: %d.\n", argv[0], jds_filename, spectrum_width);
+  printf("%s> Number of channels in file %s: %d.\n", argv[0], jds_filename2, spectrum_width2);
   printf("%s> In file %s frequency of first channel: %f MHz; frequency of last channel: %f MHz.\n", argv[0], jds_filename, freq_first, freq_last);
   printf("%s> In file %s frequency of first channel: %f MHz; frequency of last channel: %f MHz.\n", argv[0], jds_filename2, freq_first2, freq_last2);
-
-  nbytes = spectrum_width * nbits / byte;
-  nbytes2write = nbytes;
 
   /*printf("%s> \n", argv[0], );*/
   if (strrchr(jds_filename, '/') != NULL)
