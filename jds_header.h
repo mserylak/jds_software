@@ -45,7 +45,7 @@ struct UDSPP /* structure contains extended informations about about data proces
   char Soft[16];
   char SVer[16];
   char DSPv[32];
-  int junk[66]; /* comment out this line, if you want to read old data created before August 2008 */
+  int junk[66]; /* comment this line, if you want to read old data created before August 2008 */
   /* int junk[50]; uncomment this line, if you want to read old data created before August 2008 */
 };
 

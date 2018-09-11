@@ -11,15 +11,7 @@
 #include "jds_header.h" /* JDS header definition*/
 #include "jds_tools.h" /* definitions of header extraction and data conversion functions */
 
-/* initialization of functions ... */
-void send_string(char *string); /* functions used to write filterbank data files */
-void send_float(char *name, float floating_point); /* ditto */
-void send_double(char *name, double double_precision); /* ditto */
-void send_long(char *name, long integer); /* ditto */
-void send_int(char *name, int integer); /* ditto */
-void send_coords(double raj, double dej, double az, double za); /* ditto */
-
-/* ... and global variables */
+/* initialization of global variables */
 unsigned int *rawData; /* allocate pointer to array to read raw data from file */
 int *zapChannelsArr; /* allocate pointer to array storing bad channels to zap */
 float *block; /* allocate pointer to array for bytes to be actually written to file */
@@ -95,10 +87,10 @@ int main(int argc, char *argv[])
     printf("-stream      Stream operation (A-B: 0, A+B: 1, A: 2, B: 3, B-A: 4; disabled when -corr is used; default: %d).\n", streamOperation);
     printf("-nocrc       Disable automatic removal of spectra with ADC overflow and CRC errors (n.b. use when converting pre-Aug 2008 data, default: remove).\n");
     printf("-corr        Process raw data in non-standard DSPZ correlation mode (A: 0; B: 1; Re(A*B): 2; Im(A*B): 3; power(A*B): 4; default: %d).\n", correlationStreamOperation);
-    printf("-o           Give new name of output file (default: add .fil to original file name trunk)\n");
+    printf("-o           Give new name of output file (default: add .fil to original file name)\n");
     printf("-v           Verbose mode\n");
     printf("-vv          Very verbose mode\n");
-    printf("-vvv         Even more verbose mode (really HUGE output)\n");
+    printf("-vvv         Even more verbose mode (huge output)\n");
     printf("-h           Display this useful help page\n\n");
     return -1;
   }
@@ -217,7 +209,7 @@ int main(int argc, char *argv[])
       }
       else if (strcmp(argv[argument], "-corr") == 0)
       {
-        printf("%s> WARNING Special correlation mode selected! Most of options for data conversion are switched off!\n", argv[0]);
+        printf("%s> WARNING! Special correlation mode selected. Some of options for data conversion might not work as advertised.\n", argv[0]);
         correlationStreamOperation = atoi(argv[argument+1]);
         if (correlationStreamOperation < 0 || correlationStreamOperation > 4)
         {
@@ -298,7 +290,7 @@ int main(int argc, char *argv[])
   {
     Nc = 2 - headerjds.DSPP.Ch1 - headerjds.DSPP.Ch2; /* checking if file has one or two streams, if Nc = 1 then only one stream present, if 2 then both streams present */
   }
-  printf("%s> File has %d channels.\n", argv[0], Nc);
+  printf("%s> File has %d data streams.\n", argv[0], Nc);
   rewind(JDS_IN); /* rewinding file to be sure that file will be read from the beginning */
   fseek(JDS_IN, 0L, SEEK_END); /* seeking end of file */
   fileSize = ftell(JDS_IN); /* if you use ftell, then you must open the file in binary mode. If you open it in text mode, ftell only returns a "cookie" that is only usable by fseek */
@@ -306,11 +298,11 @@ int main(int argc, char *argv[])
   maxSpectraNumber = (fileSize - sizeof(headerjds)) / bps / Nf[headerjds.DSPP.Offt] / Nc; /* calculating number of spectra (time samples) in the file */
   fseek(JDS_IN, sizeof(headerjds), SEEK_SET); /* fseek to position just after header after estimating file size */
   channelBW = headerjds.DSPP.CLCfrq / 16384.0; /* channel bandwidth: sampling ADC frequency * amount of samples per stream */
-  printf("%s> Number of channels: %d.\n", argv[0], spectrumWidth);
-  printf("%s> Channel bandwidth (kHz) : %f\n", argv[0], channelBW/1e3);
+  printf("%s> Number of frequency channels: %d.\n", argv[0], spectrumWidth);
+  printf("%s> Frequency channel bandwidth (kHz) : %f\n", argv[0], channelBW / 1e3);
   freqFirst = Nfmin[headerjds.DSPP.Offt] * channelBW / 1.0e6; /* lowest observed frequency */
   freqLast = freqFirst + Nf[headerjds.DSPP.Offt] * channelBW / 1.0e6; /* highest observed frequency */
-  printf("%s> Frequency of first spectral channel: %f MHz; frequency of last spectral channel: %f MHz.\n", argv[0], freqFirst, freqLast);
+  printf("%s> Frequency of first channel: %f MHz; frequency of last channel: %f MHz.\n", argv[0], freqFirst, freqLast);
   nbytes = spectrumWidth * nbits / byte; /* calculate number of bytes per spectrum... */
 
   /* selecting frequency range and changing frequency range */
@@ -328,7 +320,7 @@ int main(int argc, char *argv[])
       freqHigh = freqLast; /* ...reset to lowest value */
     }
     firstSpecChanNum = (freqLow - freqFirst) / (channelBW / 1.0e6); /* calculating number of first spectral channel to use */
-    lastSpecChanNum = (freqHigh / (channelBW / 1.0e6)) - (freqFirst / (channelBW / 1.0e6))+1; /* calculating number of first spectral channel to use (+1 is bacause of C array starting from 0 */
+    lastSpecChanNum = (freqHigh / (channelBW / 1.0e6)) - (freqFirst / (channelBW / 1.0e6)) + 1; /* calculating number of first spectral channel to use (+1 is because of C array starting from 0 */
     numberChannels = lastSpecChanNum - firstSpecChanNum;
     nbytes = numberChannels * nbits / byte; /* ...or replace the default value of bytes per spectrum with new one */
     freqLow = freqFirst + firstSpecChanNum * channelBW / 1.0e6;
@@ -357,25 +349,46 @@ int main(int argc, char *argv[])
     printf("%s> Inverting order of frequency channels.\n", argv[0]);
   }
 
-  if (streamOperation == 0)
+  if (streamOperation == 0 && Nc == 2)
   {
-    printf("%s> Subtracting stream A from stream B (A-B).\n", argv[0]);
+    printf("%s> Subtracting stream A from stream B (A-B) for standard DSPZ data.\n", argv[0]);
   }
-  else if (streamOperation == 1)
+  else if (streamOperation == 1 && Nc == 2)
   {
-    printf("%s> Adding stream A to stream B (A+B).\n", argv[0]);
+    printf("%s> Adding stream A to stream B (A+B) for standard DSPZ data.\n", argv[0]);
   }
-  else if (streamOperation == 2)
+  else if (streamOperation == 2 && Nc == 2)
   {
-    printf("%s> Passing only stream A.\n", argv[0]);
+    printf("%s> Passing only stream A for standard DSPZ data.\n", argv[0]);
   }
-  else if (streamOperation == 3)
+  else if (streamOperation == 3 && Nc == 2)
   {
-    printf("%s> Passing only stream B.\n", argv[0]);
+    printf("%s> Passing only stream B for standard DSPZ data.\n", argv[0]);
   }
-  else if (streamOperation == 4)
+  else if (streamOperation == 4 && Nc == 2)
   {
-    printf("%s> Subtracting stream B from stream A (B-A).\n", argv[0]);
+    printf("%s> Subtracting stream B from stream A (B-A) for standard DSPZ data.\n", argv[0]);
+  }
+
+  if (CorrelationDSPZ == 1 && correlationStreamOperation == 0)
+  {
+    printf("%s> Extracting power of stream 0 from the non-standard correlation DSPZ data.\n", argv[0]);
+  }
+  else if (CorrelationDSPZ == 1 && correlationStreamOperation == 1)
+  {
+    printf("%s> Extracting power of stream 1 from the non-standard correlation DSPZ data.\n", argv[0]);
+  }
+  else if (CorrelationDSPZ == 1 && correlationStreamOperation == 2)
+  {
+    printf("%s> Extracting the real part of cross-correlation from the non-standard correlation DSPZ data.\n", argv[0]);
+  }
+  else if (CorrelationDSPZ == 1 && correlationStreamOperation == 3)
+  {
+    printf("%s> Extracting the imaginary part of the complex cross-correlation from the non-standard correlation DSPZ data.\n", argv[0]);
+  }
+  else if (CorrelationDSPZ == 1 && correlationStreamOperation == 4)
+  {
+    printf("%s> Extracting power (sqrt(A^2 + B^2)) from the non-standard correlation DSPZ data.\n", argv[0]);
   }
 
   /* creating output file */
@@ -483,7 +496,7 @@ int main(int argc, char *argv[])
   {
     bandpassArray = (float *) calloc(bps * spectrumWidth * Nc, sizeof(float)); /* allocate memory for array for storing bandpass */
     bandpassMedianSmoothed = (float *) calloc(bps * spectrumWidth, sizeof(float)); /* allocate memory for array for storing median smoothed bandpass */
-    printf("%s> Preparing median smoothed bandpass with smoothing window of %d channels.\n", argv[0], movingMeanWindow);
+    printf("%s> Preparing median smoothed bandpass with smoothing window of %d frequency channels.\n", argv[0], movingMeanWindow);
     printf("%s> Clipping spectrum channels with intensity greater than %.1f sigma of running spectrum.\n", argv[0], clipValue);
     spectrumCounter = 0;
 
@@ -592,7 +605,6 @@ int main(int argc, char *argv[])
   spectrumCounter = 0;
   for (j = 0; j < maxSpectraNumber; j++) /* iterating per single spectrum */
   {
-
     /* reading and conversion from dsp to conventional float raw data */
     if (fread(rawData, bps * spectrumWidth * Nc, 1, JDS_IN) > 0)
     {
@@ -748,44 +760,4 @@ int main(int argc, char *argv[])
   fclose(FILTERBANK_OUT);
 
   return 0;
-}
-
-void send_string(char *string)
-{
-  int len;
-  len = strlen(string);
-  fwrite(&len, sizeof(int), 1, FILTERBANK_OUT);
-  fwrite(string, sizeof(char), len, FILTERBANK_OUT);
-}
-
-void send_float(char *name, float floating_point)
-{
-  send_string(name);
-  fwrite(&floating_point, sizeof(float), 1, FILTERBANK_OUT);
-}
-
-void send_double (char *name, double double_precision)
-{
-  send_string(name);
-  fwrite(&double_precision, sizeof(double), 1, FILTERBANK_OUT);
-}
-
-void send_long(char *name, long integer)
-{
-  send_string(name);
-  fwrite(&integer, sizeof(long), 1, FILTERBANK_OUT);
-}
-
-void send_int(char *name, int integer)
-{
-  send_string(name);
-  fwrite(&integer, sizeof(int), 1, FILTERBANK_OUT);
-}
-
-void send_coords(double raj, double dej, double az, double za)
-{
-  if ((raj != 0.0) || (raj != -1.0)) send_double("src_raj", raj);
-  if ((dej != 0.0) || (dej != -1.0)) send_double("src_dej", dej);
-  if ((az != 0.0)  || (az != -1.0))  send_double("az_start", az);
-  if ((za != 0.0)  || (za != -1.0))  send_double("za_start", za);
 }

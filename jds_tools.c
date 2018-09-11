@@ -4,6 +4,9 @@
 #include <math.h>
 #include "jds_header.h"
 
+/* initialization of global variable */
+FILE *FILTERBANK_OUT; /* pointer to output file */
+
 /* function extracting bit values from integer variable */
 unsigned int getBits(int x, int p, int n)
 {
@@ -115,7 +118,7 @@ int DSPZ2Float(struct FHEADER *headerjds, unsigned int *rawData, int numberChann
         dataFloat[i] = rawData[i] * WNrm; /* conversion from DSP float to PC float */
       }
     }
-    else if (headerjds->DSPP.Mode == 1) /* data in the spectral mode */
+    else if (headerjds->DSPP.Mode == 1) /* data in the spectral mode *//* initialization of global variables */
     {
       SNrm = 4.0 * 2.0 * 1024.0 / 4294967296.0 / headerjds->DSPP.NAvr; /* normalisation */
       for (i = 0; i < numberChannels; i++)
@@ -144,14 +147,13 @@ int DSPZ2Float(struct FHEADER *headerjds, unsigned int *rawData, int numberChann
       }
     }
   }
-//  else if (correlation => 0 && correlation <= 3) /* extract streams 0 to 3 from the non-standard correlation DSPZ data */
   else if (correlation == 0 || correlation == 1 || correlation == 2 || correlation == 3) /* extract streams 0 to 3 from the non-standard correlation DSPZ data */
   {
     Nc = 4;
     SNrm = 4.0 * 2.0 * 1024.0 / 4294967296.0 / headerjds->DSPP.NAvr; /* normalisation */
     for (i = 0; i < numberChannels; i++)
     {
-      stream = rawData[i * Nc + 3]; /* select samples from 3rd stream */
+      stream = rawData[i * Nc + correlation]; /* select samples from 0th to 3rd stream */
       expn = getBits(stream, 4, 5); /* bits 4...0 - exponent */
       if ((getBits(stream, 5, 1)) == 1) /* bit 5 - the sign of mantissa in correlation mode 0 - plus / 1 - minus */
       {
@@ -179,13 +181,13 @@ int DSPZ2Float(struct FHEADER *headerjds, unsigned int *rawData, int numberChann
         {
           signRe = -1.0;
         }
-        if ((getBits(streamIm, 5, 1)) == 1) /* bit 5 - the sign of mantissa in correlation mode 0 - plus / 1 - minus */
-        {
-          signIm = -1.0;
-        }
         else if ((getBits(streamRe, 5, 1)) == 0)
         {
           signRe = 1.0;
+        }
+        if ((getBits(streamIm, 5, 1)) == 1) /* bit 5 - the sign of mantissa in correlation mode 0 - plus / 1 - minus */
+        {
+          signIm = -1.0;
         }
         else if ((getBits(streamIm, 5, 1)) == 0)
         {
@@ -198,28 +200,6 @@ int DSPZ2Float(struct FHEADER *headerjds, unsigned int *rawData, int numberChann
   }
   return 0;
 }
-
-#if 0
-void dspz_data_tr(unsigned int* buffer, float* spectra[], int numberChannels)
-   float _SNrm = 4.0 * 2.0 * 1024.0 / 4294967296.0 / headerjds->DSPP.NAvr;
-   int i, j;
-   for (i = 0; i < numberChannels; i++)
-   {
-      for (j = 0; j < Nc; j++)
-      {
-         unsigned int sample = buffer[i * Nc + j];
-         int expn = (sample & 0x1f);
-         unsigned int mant = (sample & 0xFFFFFFC0);
-         int sign = (sample & 0x20);
-         if (!sign)
-           spectra[k][j] = (float4)mantissa / pow(2.0, expn) * _SNrm;
-         else
-           spectra[k][j] = -(float4)mantissa / pow(2.0, expn) * _SNrm;
-      }
-   }
-}
-#endif
-
 
 /* function getting service data from 2 last samples per stream, 4 in total, warning: only for data taken after 2008 */
 void DSPZ2Service(struct FHEADER *headerjds, unsigned int *rawData, int numberChannels, int Verbose, int *corruptedSpectrumFlag)
@@ -495,4 +475,44 @@ double gregorian2Julian(int gregorianYear, int gregorianMonth, int gregorianDay,
   }
   julianDate = floor(365.25 * integerYear) + floor(30.6001 * (integerMonth + 1)) + decimalDay + 1720994.5 + correctionB;
   return julianDate;
+}
+
+void send_string(char *string)
+{
+  int len;
+  len = strlen(string);
+  fwrite(&len, sizeof(int), 1, FILTERBANK_OUT);
+  fwrite(string, sizeof(char), len, FILTERBANK_OUT);
+}
+
+void send_float(char *name, float floating_point)
+{
+  send_string(name);
+  fwrite(&floating_point, sizeof(float), 1, FILTERBANK_OUT);
+}
+
+void send_double (char *name, double double_precision)
+{
+  send_string(name);
+  fwrite(&double_precision, sizeof(double), 1, FILTERBANK_OUT);
+}
+
+void send_long(char *name, long integer)
+{
+  send_string(name);
+  fwrite(&integer, sizeof(long), 1, FILTERBANK_OUT);
+}
+
+void send_int(char *name, int integer)
+{
+  send_string(name);
+  fwrite(&integer, sizeof(int), 1, FILTERBANK_OUT);
+}
+
+void send_coords(double raj, double dej, double az, double za)
+{
+  if ((raj != 0.0) || (raj != -1.0)) send_double("src_raj", raj);
+  if ((dej != 0.0) || (dej != -1.0)) send_double("src_dej", dej);
+  if ((az != 0.0)  || (az != -1.0))  send_double("az_start", az);
+  if ((za != 0.0)  || (za != -1.0))  send_double("za_start", za);
 }
